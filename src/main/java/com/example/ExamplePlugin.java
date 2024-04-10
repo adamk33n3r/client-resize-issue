@@ -1,16 +1,19 @@
 package com.example;
 
-import com.google.inject.Provides;
 import javax.inject.Inject;
+import javax.inject.Provider;
+
+import com.google.inject.Binder;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.info.InfoPlugin;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.MultiplexingPluginPanel;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.ImageUtil;
+
+import java.awt.image.BufferedImage;
 
 @Slf4j
 @PluginDescriptor(
@@ -19,35 +22,34 @@ import net.runelite.client.plugins.PluginDescriptor;
 public class ExamplePlugin extends Plugin
 {
 	@Inject
-	private Client client;
+	private ClientToolbar clientToolbar;
 
 	@Inject
-	private ExampleConfig config;
+	private Provider<MainPanel> mainPanelProvider;
+
+	private NavigationButton testNavBtn;
+
+	@Override
+	public void configure(Binder binder) {
+		binder.bind(MultiplexingPluginPanel.class).toProvider(() -> this.mainPanelProvider.get().getMuxer());
+	}
 
 	@Override
 	protected void startUp() throws Exception
 	{
-		log.info("Example started!");
+		final BufferedImage icon = ImageUtil.loadImageResource(InfoPlugin.class, "info_icon.png");
+		this.testNavBtn = NavigationButton.builder()
+			.tooltip("Client Resize Issue")
+			.icon(icon)
+			.priority(1)
+			.panel(this.mainPanelProvider.get().getMuxer())
+			.build();
+		this.clientToolbar.addNavigation(this.testNavBtn);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
-		log.info("Example stopped!");
-	}
-
-	@Subscribe
-	public void onGameStateChanged(GameStateChanged gameStateChanged)
-	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
-		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Example says " + config.greeting(), null);
-		}
-	}
-
-	@Provides
-	ExampleConfig provideConfig(ConfigManager configManager)
-	{
-		return configManager.getConfig(ExampleConfig.class);
+		this.clientToolbar.removeNavigation(this.testNavBtn);
 	}
 }
